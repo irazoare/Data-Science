@@ -1,0 +1,130 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+import numpy as np
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import StandardScaler, label_binarize
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.utils import resample
+import itertools
+
+
+def get_confusion_matrix(y_true, y_pred, labels):
+    cm = confusion_matrix(y_true.argmax(axis=1), y_pred.argmax(axis=1), labels=labels)
+    return cm
+
+
+def evaluation_metrics(clf, y_true, X):
+    y_pred = clf.predict(X)
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, average='macro')
+    recall = recall_score(y_true, y_pred, average='macro')
+    f1 = f1_score(y_true, y_pred, average='macro')
+    specificity = np.mean([recall_score(y_true[:, i], y_pred[:, i], pos_label=0) for i in range(y_true.shape[1])])
+    return [accuracy, precision, recall, specificity, f1]
+
+
+# Load your dataset
+data = pd.read_csv("dataset.csv")
+data_outcome = pd.read_csv("outcome.csv")
+
+# Specify relevant genes and prepare data
+relevant_genes = ["PIK3CA", "RUNX1", "CDH1", "TP53", "TBX3", "PTEN", "FOXA1", "MAP3K1", "GATA3", "AKT1", "NBL1", "DCTD",
+                  "RB1", "SF3B1", "CBFB",
+                  "OR9A2", "NCOA3", "RBMX", "MAP2K4", "TROVE2", "NADK", "CASP8", "CTSS", "ACTL6B", "LGALS1", "KRAS",
+                  "KCNN3", "FBXW7", "LRIG2", "PIK3R1", "PARP4",
+                  "ZNF28", "HLA-DRB1", "ERBB2", "ZMYM3", "RAB42", "CTCF", "ATAD2", "CDKN1B", "GRIA2", "NCOR1", "HRNR",
+                  "GPRIN2", "PAX2", "ACTG1", "AQP12A", "PIK3C3",
+                  "MYB", "IRS4", "TBL1XR1", "RPGR", "CCNI", "ARID1A", "CD3EAP", "ADAMTS6", "OR2D2", "TMEM199", "MST1",
+                  "RHBG", "ZFP36L1", "TCP11", "CASZ1", "GAL3ST1",
+                  "FRMPD2", "GPS2", "ZNF362"]
+used_data = data[relevant_genes].copy()
+used_data["outcome"] = data_outcome["BRCA_subtype"]
+used_data = used_data.dropna()
+
+X = used_data.drop('outcome', axis=1)
+y = used_data['outcome']
+y = y.astype(str)
+y_bin = label_binarize(y, classes=np.unique(y))
+n_classes = y_bin.shape[1]
+
+# Stratified k-fold cross-validation and bootstrapping
+n_splits = 5
+n_bootstrap_samples = 10
+skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=2023)
+df_performance = pd.DataFrame(
+    columns=['fold', 'bootstrap', 'clf', 'accuracy', 'precision', 'recall', 'specificity', 'F1'])
+
+fold = 0
+for train_index, test_index in skf.split(X, y):
+    X_train = X.iloc[train_index]
+    y_train = y_bin[train_index]
+    X_test = X.iloc[test_index]
+    y_test = y_bin[test_index]
+
+    scaler = StandardScaler()
+    X_train_sc = scaler.fit_transform(X_train)
+    X_test_sc = scaler.transform(X_test)
+
+    for bootstrap in range(n_bootstrap_samples):
+        X_train_bootstrap = []
+        y_train_bootstrap = []
+
+        for i in range(n_classes):
+            X_class = X_train_sc[y_train[:, i] == 1]
+            y_class = y_train[y_train[:, i] == 1]
+            X_resampled, y_resampled = resample(X_class, y_class, n_samples=950,#n_samples=min(y_train.sum(axis=0)
+                                                random_state=bootstrap + 2023)
+            X_train_bootstrap.append(X_resampled)
+            y_train_bootstrap.append(y_resampled)
+
+        X_train_bootstrap = np.vstack(X_train_bootstrap)
+        y_train_bootstrap = np.vstack(y_train_bootstrap)
+
+        clf = RandomForestClassifier(random_state=2023)
+        clf.fit(X_train_bootstrap, y_train_bootstrap)
+
+        eval_metrics_RF = evaluation_metrics(clf, y_test, X_test_sc)
+        df_performance.loc[len(df_performance), :] = [fold, bootstrap, 'RF'] + eval_metrics_RF
+
+    # Plot feature importance
+    importances = clf.feature_importances_
+    indices = np.argsort(importances)[::-1]
+
+    plt.figure(figsize=(12, 8))
+    plt.title("Feature Importance")
+    plt.bar(range(X.shape[1]), importances[indices], align="center")
+    plt.xticks(range(X.shape[1]), [relevant_genes[i] for i in indices], rotation=90)
+    plt.xlim([-1, X.shape[1]])
+    plt.savefig("../output/feature_importance.png")
+
+    # Plot confusion matrix
+    y_test_pred = clf.predict(X_test_sc)
+    cm = get_confusion_matrix(y_test, y_test_pred, labels=np.arange(n_classes))
+    plt.figure(figsize=(8,6))
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix")
+    plt.colorbar()
+    tick_marks = np.arange(n_classes)
+    plt.xticks(tick_marks, np.unique(y), rotation=45)
+    plt.yticks(tick_marks, np.unique(y))
+    thresh = cm.max() / 2.0
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], 'd'),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label',labelpad=-7)
+    plt.savefig("../output/confusion_matrix.png")
+
+    fold += 1
+
+performance_summary = df_performance.groupby('clf').agg({'accuracy': ['mean', 'std'],
+                                                         'precision': ['mean', 'std'],
+                                                         'recall': ['mean', 'std'],
+                                                         'specificity': ['mean', 'std'],
+                                                         'F1': ['mean', 'std']})
+
+print(performance_summary)
