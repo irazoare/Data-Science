@@ -15,7 +15,7 @@ missing_values_count = data.isnull().sum()
 missing_values_count.nunique()
 zero_values_count = (data == 0).sum()
 pik3ca=zero_values_count["TP53"]
-relevant_genes=["PIK3CA", "RUNX1", "CDH1", "TP53", "TBX3", "PTEN", "FOXA1", "MAP3K1", "GATA3", "AKT1", "NBL1", "DCTD", "RB1", "SF3B1", "CBFB", "OR9A2", "NCOA3", "RBMX", "MAP2K4", "TROVE2", "NADK", "CASP8", "CTSS", "ACTL6B", "LGALS1", "KRAS", "KCNN3", "FBXW7", "LRIG2", "PIK3R1", "PARP4", "ZNF28", "HLA-DRB1", "ERBB2", "ZMYM3", "RAB42", "CTCF", "ATAD2", "CDKN1B", "GRIA2", "NCOR1", "HRNR", "GPRIN2", "PAX2", "ACTG1", "AQP12A", "PIK3C3", "MYB", "IRS4", "TBL1XR1", "RPGR", "CCNI", "ARID1A", "CD3EAP", "ADAMTS6", "OR2D2", "TMEM199", "MST1", "RHBG", "ZFP36L1", "TCP11", "CASZ1", "GAL3ST1", "FRMPD2", "GPS2", "ZNF362"]
+relevant_genes=["PIK3CA", "RUNX1", "CDH1", "TP53", "TBX3", "PTEN", "FOXA1", "MAP3K1", "GATA3", "AKT1", "NBL1", "DCTD", "RB1", "SF3B1", "CBFB", "OR9A2", "NCOA3", "RBMX", "MAP2K4", "TROVE2", "NADK", "CASP8", "CTSS", "ACTL6B", "LGALS1", "KRAS", "KCNN3", "FBXW7", "LRIG2", "PIK3R1", "PARP4", "ZNF28", "HLA-DRB1", "ERBB2", "ZMYM3", "RAB42", "CTCF", "ATAD2", "CDKN1B", "GRIA2", "NCOR1", "HRNR", "GPRIN2", "PAX2", "ACTG1", "AQP12A", "PIK3C3", "MYB", "IRS4", "TBL1XR1", "RPGR", "CCNI", "ARID1A", "CD3EAP", "ADAMTS6", "OR2D2", "TMEM199", "MST1", "RHBG", "ZFP36L1", "TCP11", "CASZ1", "GAL3ST1", "FRMPD2", "GPS2", "ZNF362", "BRCA1", "BRCA2", "PGR", "ESR1"]
 used_data=data[relevant_genes].copy()
 used_data["outcome"]=data_outcome["BRCA_subtype"]
 used_data=used_data.dropna()
